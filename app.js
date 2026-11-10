@@ -88,11 +88,17 @@ const server = http.createServer((req, res) => {
         const interaction = JSON.parse(body.toString("utf8"));
         const answer = await handle(interaction);
         send(res, 200, answer);
-        // Log commands and button clicks (not every letter typed for suggestions)
+        // Log commands and button clicks (not every letter typed for suggestions).
+        // Discord's ids contain the moment it was clicked, so this also shows
+        // how long the click took to reach the bot (Discord allows 3 seconds in all).
         const ms = Date.now() - arrived;
-        if (interaction.type === 2 || interaction.type === 3 || ms > 1000) {
+        const clicked = interaction.id ? Number((BigInt(interaction.id) >> 22n) + 1420070400000n) : arrived;
+        const travel = arrived - clicked;
+        if (interaction.type === 2 || interaction.type === 3 || ms + travel > 1000) {
           const what = interaction.data?.custom_id || `/${interaction.data?.name || "ping"}`;
-          console.log(`${what} answered in ${ms} ms${ms > 2500 ? " (TOO SLOW for Discord)" : ""}`);
+          const time = new Date().toISOString().slice(11, 19);
+          const slow = ms + travel > 2500 ? "  << TOO SLOW for Discord" : "";
+          console.log(`${time} ${what}: reached the bot ${travel} ms after the click, answered in ${ms} ms${slow}`);
         }
       } catch (error) {
         console.error(error);

@@ -1,0 +1,23 @@
+{
+  "name": "squad-intelligence-bot",
+  "private": true,
+  "version": "9.0.0",
+  "description": "Squad Intelligence Discord bot: answers slash commands with picture cards made from the website's data",
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "build": "echo \"Nothing to build\"",
+    "register": "node register.js",
+    "preview": "node tools/preview.js"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "dependencies": {
+    "@jsquash/webp": "1.5.0",
+    "@resvg/resvg-wasm": "2.6.2",
+    "fast-png": "8.0.0",
+    "satori": "0.63.2"
+  }
+}

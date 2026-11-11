@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config.js";
 import { CARD_COMMANDS, COMPARE_KINDS } from "./commands.js";
-import { current, fresh, getCard, resolve, search } from "./data.js";
+import { cardForPath, current, fresh, getCard, resolve, search } from "./data.js";
 import { editReply } from "./discord.js";
 import { drawCard, drawCompare } from "./drawer.js";
 import { fromSite } from "./site.js";
@@ -89,6 +89,17 @@ async function sendCard(token, type, id, tabIndex = 0) {
     { content: "", components: buttons(type, id, card, card.tabs.indexOf(tab)) },
     { name: `${type}-${tab.id}.png`, data: png, description: altText(card, tab) },
   );
+}
+
+// A page's card as a picture, for link previews (Discord, Reddit, WhatsApp…
+// show it when someone shares a link to the website). null = no card for it.
+export async function pagePreview(pagePath) {
+  if (!current().version) await fresh();
+  const found = cardForPath(pagePath);
+  if (!found) return null;
+  const card = getCard(found.type, found.id);
+  // Same picture (and cache file) as the bot's first tab for that card
+  return cached(`${found.type}-${found.id}-0`, () => drawCard(found.type, card, 0, current().meta.game));
 }
 
 // Runs the slow part after Discord has been told "working on it", and turns

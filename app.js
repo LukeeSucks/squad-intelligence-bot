@@ -9,13 +9,25 @@ import http from "node:http";
 import { config } from "./src/config.js";
 import { current, fresh } from "./src/data.js";
 import { registerCommands, verify } from "./src/discord.js";
-import { handle } from "./src/handlers.js";
+import { handle, pagePreview } from "./src/handlers.js";
 import { getUsage } from "./src/usage.js";
 import { siteStatus } from "./src/site.js";
 
 const started = Date.now();
 // Requests to /interactions: accepted (signed by Discord) and refused
 const checks = { ok: 0, refused: 0 };
+// Link preview pictures sent (since start)
+let previews = 0;
+// Website section → its share picture in /og/ (used when a page has no card)
+const PREVIEW_SECTIONS = {
+  vehicles: "vehicles",
+  weapons: "weapons",
+  roles: "roles",
+  factions: "factions",
+  maps: "maps",
+  layers: "layers",
+  emplacements: "emplacements",
+};
 const MAX_BODY = 1024 * 1024;
 
 const send = (res, status, body, type = "application/json") => {
@@ -55,6 +67,7 @@ function statusPage(res) {
       `Up for:        ${Math.round((Date.now() - started) / 60000)} min`,
       `Commands used: ${today} today, ${total} since ${usage.since.slice(0, 10)}`,
       `From Discord:  ${checks.ok} accepted, ${checks.refused} refused (since start)`,
+      `Link previews: ${previews} sent (since start)`,
       problems.length ? `\nPROBLEMS:\n${problems.map((p) => `  - ${p}`).join("\n")}` : "",
       top ? `\nMost viewed cards:\n${top}` : "",
     ].join("\n"),
@@ -105,6 +118,41 @@ const server = http.createServer((req, res) => {
         send(res, 200, { type: 4, data: { content: "Sorry, the bot hit a problem. Please try again.", flags: 64 } });
       }
     });
+    return;
+  }
+  // Link preview pictures: /preview/vehicles/BP_M1A2.png is the card for
+  // squadintelligence.com/vehicles/BP_M1A2 (the website's pages point here)
+  const preview = url.pathname.match(/^\/preview(\/[a-z]+\/[^/]+)\.png$/);
+  if (preview && (req.method === "GET" || req.method === "HEAD")) {
+    let pagePath;
+    try {
+      pagePath = decodeURIComponent(preview[1]);
+    } catch {
+      pagePath = preview[1];
+    }
+    pagePreview(pagePath).then(
+      (png) => {
+        if (!png) {
+          // No card for that page: the website's own picture for that section
+          const section = pagePath.split("/")[1];
+          res.writeHead(302, { Location: `${config.siteUrl}/og/${PREVIEW_SECTIONS[section] || "home"}.jpg` });
+          res.end();
+          return;
+        }
+        previews += 1;
+        res.writeHead(200, {
+          "Content-Type": "image/png",
+          "Content-Length": png.length,
+          // Sites that show link previews keep their own copy for a day
+          "Cache-Control": "public, max-age=86400",
+        });
+        res.end(req.method === "HEAD" ? undefined : png);
+      },
+      (error) => {
+        console.error("Link preview failed:", pagePath, error.message);
+        send(res, 500, { error: "could not draw that card" });
+      },
+    );
     return;
   }
   if (req.method === "GET") {

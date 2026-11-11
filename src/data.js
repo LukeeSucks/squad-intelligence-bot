@@ -99,6 +99,22 @@ export function search(query, types = null, limit = 25) {
   return scored.slice(0, limit).map(([, entry]) => entry);
 }
 
+// The card for a website page ("/vehicles/BP_M1A2"), for link previews.
+// Several cards can share a page (e.g. emplacement versions): the first wins.
+let pathIndex = { version: null, map: new Map() };
+export function cardForPath(pagePath) {
+  if (pathIndex.version !== state.version) {
+    const map = new Map();
+    for (const type of TYPES) {
+      for (const [id, card] of Object.entries(state.cards[type] || {})) {
+        if (card.path && !map.has(card.path)) map.set(card.path, { type, id });
+      }
+    }
+    pathIndex = { version: state.version, map };
+  }
+  return pathIndex.map.get(pagePath) || null;
+}
+
 // Works out what a command option means: an exact pick from the suggestions
 // ("vehicle:BP_M1A2"), a known id, or just typed text (best match)
 export function resolve(value, types) {
